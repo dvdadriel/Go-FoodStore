@@ -1,11 +1,36 @@
 package config
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
 
+// clearDBEnv menghapus semua variabel DB_* dan memulihkannya setelah test.
+// t.Setenv tidak bisa dipakai di sini: ia hanya bisa men-SET, bukan menghapus,
+// sehingga tidak bisa membentuk environment kosong yang jadi premis test ini.
+//
+// Tanpa ini, developer yang baru menyalin .env.example ke shell-nya akan
+// melihat suite merah di checkout yang bersih — justru orang yang paling
+// mungkin sedang mencoba repo ini.
+func clearDBEnv(t *testing.T) {
+	t.Helper()
+	for _, key := range []string{"DB_USER", "DB_PASSWORD", "DB_HOST", "DB_PORT", "DB_NAME"} {
+		old, ok := os.LookupEnv(key)
+		if !ok {
+			continue
+		}
+		// key dan old di-capture eksplisit supaya tidak bergantung pada
+		// aturan per-iterasi Go 1.22+ untuk bisa dibaca dengan benar.
+		key, old := key, old
+		t.Cleanup(func() { os.Setenv(key, old) })
+		os.Unsetenv(key)
+	}
+}
+
 func TestDSNMemakaiDefaultSaatEnvKosong(t *testing.T) {
+	clearDBEnv(t)
+
 	got := DSN()
 
 	for _, want := range []string{"root", "tcp(localhost:3306)", "go-food-store", "parseTime=True"} {
@@ -50,6 +75,9 @@ func TestDSNMengizinkanPasswordKosong(t *testing.T) {
 // "localhost" — itulah arti "string kosong yang di-set dianggap disengaja".
 // Dengan os.Getenv test ini gagal.
 func TestDSNMenghormatiNilaiKosongYangEksplisit(t *testing.T) {
+	// Assertion "@tcp(:3306)/" membaca DB_PORT dari environment, jadi test ini
+	// ikut terpapar pollution meskipun ia men-set DB_HOST sendiri.
+	clearDBEnv(t)
 	t.Setenv("DB_HOST", "")
 
 	got := DSN()
