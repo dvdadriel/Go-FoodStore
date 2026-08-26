@@ -1,0 +1,50 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+
+      - name: Verify go.mod is tidy
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum
+
+      - name: Verify formatting
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; exit 1; }
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test ./... -race -coverprofile=coverage.out
+
+      # Dua angka, keduanya jujur dan keduanya perlu dibaca bersama.
+      # Total repo rendah karena controller dan repository warisan belum
+      # punya test; layer yang memang digarap ada di 100%. Mencetak hanya
+      # salah satunya akan menyesatkan ke salah satu arah.
+      - name: Coverage summary
+        run: |
+          echo "== Per fungsi, layer yang dites =="
+          go tool cover -func=coverage.out | grep -Ev '\s0\.0%$' | grep -v '^total:'
+          echo
+          echo "== Total seluruh repo (termasuk paket tanpa test) =="
+          go tool cover -func=coverage.out | tail -1
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t go-food-store:ci .
