@@ -2,23 +2,12 @@ package config
 
 import (
 	"fmt"
-	"os"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 
 	"go-food-store/helpers"
 )
-
-// env mengembalikan nilai environment variable, atau fallback kalau tidak
-// di-set. String kosong yang di-set secara eksplisit dianggap nilai yang
-// disengaja — password kosong itu sah untuk MySQL root di lokal.
-func env(key, fallback string) string {
-	if v, ok := os.LookupEnv(key); ok {
-		return v
-	}
-	return fallback
-}
 
 // DSN membentuk DSN MySQL dari environment, dengan default yang cocok untuk
 // pengembangan lokal.
