@@ -1,15 +1,24 @@
 package foodservice
 
 import (
+	"testing"
+
 	"go-food-store/json/response"
 	"go-food-store/models"
 )
 
-// stubFoodRepo adalah FoodRepo yang dikendalikan test. Setiap field fungsi
-// boleh nil; kalau dipanggil saat nil, test akan gagal lewat panic dengan
-// pesan yang jelas — itu justru cara kita membuktikan sebuah method TIDAK
-// seharusnya dipanggil.
+// stubFoodRepo adalah FoodRepo yang dikendalikan test.
+//
+// Konvensi "method ini TIDAK boleh dipanggil" — satu cara saja, dipakai
+// konsisten di semua test:
+//
+//	Assertion-nya lewat calls/called(). Itu yang menyatakan maksud test.
+//	Field fungsi yang dibiarkan nil adalah backstop: kalau method-nya
+//	ternyata dipanggil, test gagal lewat t.Fatalf dengan pesan jelas,
+//	bukan lewat panic yang mematikan seluruh test binary.
 type stubFoodRepo struct {
+	t *testing.T
+
 	createFoodFn  func(models.Food) response.WebResponse
 	updateFoodFn  func(models.Food) response.WebResponse
 	deleteFoodFn  func(uint) response.WebResponse
@@ -24,45 +33,50 @@ type stubFoodRepo struct {
 }
 
 func (s *stubFoodRepo) CreateFood(food models.Food) response.WebResponse {
+	if s.createFoodFn == nil {
+		s.t.Helper()
+		s.t.Fatalf("CreateFood dipanggil padahal test tidak mengharapkannya")
+	}
 	s.calls = append(s.calls, "CreateFood")
 	s.createdFood = food
-	if s.createFoodFn == nil {
-		panic("CreateFood dipanggil padahal test tidak mengharapkannya")
-	}
 	return s.createFoodFn(food)
 }
 
 func (s *stubFoodRepo) UpdateFood(food models.Food) response.WebResponse {
+	if s.updateFoodFn == nil {
+		s.t.Helper()
+		s.t.Fatalf("UpdateFood dipanggil padahal test tidak mengharapkannya")
+	}
 	s.calls = append(s.calls, "UpdateFood")
 	s.updatedFood = food
-	if s.updateFoodFn == nil {
-		panic("UpdateFood dipanggil padahal test tidak mengharapkannya")
-	}
 	return s.updateFoodFn(food)
 }
 
 func (s *stubFoodRepo) DeleteFood(id uint) response.WebResponse {
+	if s.deleteFoodFn == nil {
+		s.t.Helper()
+		s.t.Fatalf("DeleteFood dipanggil padahal test tidak mengharapkannya")
+	}
 	s.calls = append(s.calls, "DeleteFood")
 	s.deletedID = id
-	if s.deleteFoodFn == nil {
-		panic("DeleteFood dipanggil padahal test tidak mengharapkannya")
-	}
 	return s.deleteFoodFn(id)
 }
 
 func (s *stubFoodRepo) GetAllFood() response.WebResponse {
-	s.calls = append(s.calls, "GetAllFood")
 	if s.getAllFoodFn == nil {
-		panic("GetAllFood dipanggil padahal test tidak mengharapkannya")
+		s.t.Helper()
+		s.t.Fatalf("GetAllFood dipanggil padahal test tidak mengharapkannya")
 	}
+	s.calls = append(s.calls, "GetAllFood")
 	return s.getAllFoodFn()
 }
 
 func (s *stubFoodRepo) GetFoodById(id uint) (response.WebResponse, bool) {
-	s.calls = append(s.calls, "GetFoodById")
 	if s.getFoodByIdFn == nil {
-		panic("GetFoodById dipanggil padahal test tidak mengharapkannya")
+		s.t.Helper()
+		s.t.Fatalf("GetFoodById dipanggil padahal test tidak mengharapkannya")
 	}
+	s.calls = append(s.calls, "GetFoodById")
 	return s.getFoodByIdFn(id)
 }
 

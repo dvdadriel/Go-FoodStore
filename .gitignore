@@ -4,6 +4,7 @@
 # build
 go-food-store
 *.exe
+*.test
 /bin/
 
 # coverage

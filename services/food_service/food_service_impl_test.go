@@ -2,6 +2,7 @@ package foodservice
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/go-playground/validator"
@@ -11,6 +12,10 @@ import (
 	"go-food-store/models"
 )
 
+// Pesan pada response stub dibuat berbeda-beda dengan sengaja. Kode HTTP
+// saja tidak cukup: kalau semua stub membalas 200, test tidak bisa
+// membedakan "service meneruskan response repository" dari "service
+// mengarang response 200 sendiri". Message-lah yang jadi penanda asal.
 func okResponse(msg string) response.WebResponse {
 	return response.WebResponse{Code: http.StatusOK, Status: "OK", Message: msg}
 }
@@ -28,24 +33,41 @@ func TestCreate(t *testing.T) {
 		name         string
 		req          request.CreateFoodReq
 		wantCode     int
+		wantStatus   string
+		wantMessage  string
 		wantRepoCall bool
 	}{
 		{
-			name:         "request valid diteruskan ke repository",
-			req:          request.CreateFoodReq{FoodName: "Nasi Goreng", FoodPrice: 25000},
-			wantCode:     http.StatusOK,
+			name:     "request valid diteruskan ke repository",
+			req:      request.CreateFoodReq{FoodName: "Nasi Goreng", FoodPrice: 25000},
+			wantCode: http.StatusOK,
+			// Datang dari stub CreateFood, bukan dikarang oleh service.
+			wantStatus:   "OK",
+			wantMessage:  "dari CreateFood",
 			wantRepoCall: true,
 		},
 		{
 			name:         "nama kosong ditolak sebelum menyentuh repository",
 			req:          request.CreateFoodReq{FoodName: "", FoodPrice: 25000},
 			wantCode:     http.StatusBadRequest,
+			wantStatus:   "Bad Request",
+			wantMessage:  "Please check the request",
 			wantRepoCall: false,
 		},
 		{
 			name:         "harga nol ditolak karena bertanda required",
 			req:          request.CreateFoodReq{FoodName: "Nasi Goreng", FoodPrice: 0},
 			wantCode:     http.StatusBadRequest,
+			wantStatus:   "Bad Request",
+			wantMessage:  "Please check the request",
+			wantRepoCall: false,
+		},
+		{
+			name:         "nama 201 karakter ditolak karena melewati max=200",
+			req:          request.CreateFoodReq{FoodName: strings.Repeat("a", 201), FoodPrice: 25000},
+			wantCode:     http.StatusBadRequest,
+			wantStatus:   "Bad Request",
+			wantMessage:  "Please check the request",
 			wantRepoCall: false,
 		},
 	}
@@ -53,8 +75,9 @@ func TestCreate(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			repo := &stubFoodRepo{
+				t: t,
 				createFoodFn: func(f models.Food) response.WebResponse {
-					return okResponse("Successfully create new food")
+					return okResponse("dari CreateFood")
 				},
 			}
 			svc := NewFoodService(repo, validator.New())
@@ -63,6 +86,12 @@ func TestCreate(t *testing.T) {
 
 			if got.Code != tt.wantCode {
 				t.Errorf("Code = %d, mau %d", got.Code, tt.wantCode)
+			}
+			if got.Status != tt.wantStatus {
+				t.Errorf("Status = %q, mau %q", got.Status, tt.wantStatus)
+			}
+			if got.Message != tt.wantMessage {
+				t.Errorf("Message = %q, mau %q", got.Message, tt.wantMessage)
 			}
 			if repo.called("CreateFood") != tt.wantRepoCall {
 				t.Errorf("CreateFood dipanggil = %v, mau %v", repo.called("CreateFood"), tt.wantRepoCall)
@@ -73,14 +102,18 @@ func TestCreate(t *testing.T) {
 
 func TestCreateMemetakanFieldKeModel(t *testing.T) {
 	repo := &stubFoodRepo{
+		t: t,
 		createFoodFn: func(f models.Food) response.WebResponse {
-			return okResponse("ok")
+			return okResponse("dari CreateFood")
 		},
 	}
 	svc := NewFoodService(repo, validator.New())
 
 	svc.Create(request.CreateFoodReq{FoodName: "Sate Ayam", FoodPrice: 30000})
 
+	if !repo.called("CreateFood") {
+		t.Fatal("CreateFood tidak dipanggil")
+	}
 	if repo.createdFood.FoodName != "Sate Ayam" {
 		t.Errorf("FoodName = %q, mau %q", repo.createdFood.FoodName, "Sate Ayam")
 	}
@@ -91,10 +124,11 @@ func TestCreateMemetakanFieldKeModel(t *testing.T) {
 
 func TestDeleteTidakMenghapusSaatDataTidakAda(t *testing.T) {
 	repo := &stubFoodRepo{
+		t: t,
 		getFoodByIdFn: func(id uint) (response.WebResponse, bool) {
 			return notFoundResponse(), false
 		},
-		// deleteFoodFn sengaja nil: kalau dipanggil, stub akan panic.
+		// deleteFoodFn sengaja nil — lihat konvensi di stub_repo_test.go.
 	}
 	svc := NewFoodService(repo, validator.New())
 
@@ -103,6 +137,9 @@ func TestDeleteTidakMenghapusSaatDataTidakAda(t *testing.T) {
 	if got.Code != http.StatusNotFound {
 		t.Errorf("Code = %d, mau %d", got.Code, http.StatusNotFound)
 	}
+	if got.Message != "Food not found" {
+		t.Errorf("Message = %q, mau response dari GetFoodById", got.Message)
+	}
 	if repo.called("DeleteFood") {
 		t.Error("DeleteFood dipanggil padahal data tidak ditemukan")
 	}
@@ -110,11 +147,12 @@ func TestDeleteTidakMenghapusSaatDataTidakAda(t *testing.T) {
 
 func TestDeleteMenghapusSaatDataAda(t *testing.T) {
 	repo := &stubFoodRepo{
+		t: t,
 		getFoodByIdFn: func(id uint) (response.WebResponse, bool) {
-			return okResponse("found"), true
+			return okResponse("dari GetFoodById"), true
 		},
 		deleteFoodFn: func(id uint) response.WebResponse {
-			return okResponse("Successfully delete food")
+			return okResponse("dari DeleteFood")
 		},
 	}
 	svc := NewFoodService(repo, validator.New())
@@ -124,6 +162,14 @@ func TestDeleteMenghapusSaatDataAda(t *testing.T) {
 	if got.Code != http.StatusOK {
 		t.Errorf("Code = %d, mau %d", got.Code, http.StatusOK)
 	}
+	// Kedua stub membalas 200; Message-nya yang membuktikan response mana
+	// yang diteruskan.
+	if got.Message != "dari DeleteFood" {
+		t.Errorf("response berasal dari %q, mau dari DeleteFood", got.Message)
+	}
+	if !repo.called("DeleteFood") {
+		t.Fatal("DeleteFood tidak dipanggil")
+	}
 	if repo.deletedID != 7 {
 		t.Errorf("id yang dihapus = %d, mau 7", repo.deletedID)
 	}
@@ -131,13 +177,38 @@ func TestDeleteMenghapusSaatDataAda(t *testing.T) {
 
 func TestUpdate(t *testing.T) {
 	t.Run("request tidak valid ditolak sebelum lookup", func(t *testing.T) {
-		repo := &stubFoodRepo{} // semua fn nil: panic kalau tersentuh
+		repo := &stubFoodRepo{t: t} // semua fn nil — lihat konvensi di stub_repo_test.go
 		svc := NewFoodService(repo, validator.New())
 
 		got := svc.Update(request.UpdateFoodReq{Id: 1, FoodName: "", FoodPrice: 100})
 
 		if got.Code != http.StatusBadRequest {
 			t.Errorf("Code = %d, mau %d", got.Code, http.StatusBadRequest)
+		}
+		if got.Status != "Bad Request" {
+			t.Errorf("Status = %q, mau %q", got.Status, "Bad Request")
+		}
+		// Beda satu kata dari pesan Create ("the" vs "your") — keduanya
+		// bagian dari kontrak API, jadi dikunci apa adanya.
+		if got.Message != "Please check your request" {
+			t.Errorf("Message = %q, mau %q", got.Message, "Please check your request")
+		}
+		if len(repo.calls) != 0 {
+			t.Errorf("repository tersentuh: %v", repo.calls)
+		}
+	})
+
+	t.Run("id nol ditolak karena bertanda required", func(t *testing.T) {
+		repo := &stubFoodRepo{t: t}
+		svc := NewFoodService(repo, validator.New())
+
+		got := svc.Update(request.UpdateFoodReq{Id: 0, FoodName: "Bakso", FoodPrice: 20000})
+
+		if got.Code != http.StatusBadRequest {
+			t.Errorf("Code = %d, mau %d", got.Code, http.StatusBadRequest)
+		}
+		if got.Message != "Please check your request" {
+			t.Errorf("Message = %q, mau %q", got.Message, "Please check your request")
 		}
 		if len(repo.calls) != 0 {
 			t.Errorf("repository tersentuh: %v", repo.calls)
@@ -146,6 +217,7 @@ func TestUpdate(t *testing.T) {
 
 	t.Run("tidak meng-update saat data tidak ada", func(t *testing.T) {
 		repo := &stubFoodRepo{
+			t: t,
 			getFoodByIdFn: func(id uint) (response.WebResponse, bool) {
 				return notFoundResponse(), false
 			},
@@ -157,6 +229,9 @@ func TestUpdate(t *testing.T) {
 		if got.Code != http.StatusNotFound {
 			t.Errorf("Code = %d, mau %d", got.Code, http.StatusNotFound)
 		}
+		if got.Message != "Food not found" {
+			t.Errorf("Message = %q, mau response dari GetFoodById", got.Message)
+		}
 		if repo.called("UpdateFood") {
 			t.Error("UpdateFood dipanggil padahal data tidak ditemukan")
 		}
@@ -164,32 +239,47 @@ func TestUpdate(t *testing.T) {
 
 	t.Run("meneruskan id ke gorm.Model saat data ada", func(t *testing.T) {
 		repo := &stubFoodRepo{
+			t: t,
 			getFoodByIdFn: func(id uint) (response.WebResponse, bool) {
-				return okResponse("found"), true
+				return okResponse("dari GetFoodById"), true
 			},
 			updateFoodFn: func(f models.Food) response.WebResponse {
-				return okResponse("Successfully update food data")
+				return okResponse("dari UpdateFood")
 			},
 		}
 		svc := NewFoodService(repo, validator.New())
 
-		svc.Update(request.UpdateFoodReq{Id: 5, FoodName: "Bakso", FoodPrice: 20000})
+		got := svc.Update(request.UpdateFoodReq{Id: 5, FoodName: "Bakso", FoodPrice: 20000})
 
+		// Kedua stub membalas 200; Message-nya yang membuktikan response
+		// mana yang diteruskan.
+		if got.Message != "dari UpdateFood" {
+			t.Errorf("response berasal dari %q, mau dari UpdateFood", got.Message)
+		}
+		if !repo.called("UpdateFood") {
+			t.Fatal("UpdateFood tidak dipanggil")
+		}
 		if repo.updatedFood.ID != 5 {
 			t.Errorf("ID = %d, mau 5", repo.updatedFood.ID)
 		}
 		if repo.updatedFood.FoodName != "Bakso" {
 			t.Errorf("FoodName = %q, mau %q", repo.updatedFood.FoodName, "Bakso")
 		}
+		if repo.updatedFood.FoodPrice != 20000 {
+			t.Errorf("FoodPrice = %v, mau %v", repo.updatedFood.FoodPrice, 20000.0)
+		}
 	})
 }
 
 func TestFindAllDiteruskanApaAdanya(t *testing.T) {
 	want := response.WebResponse{
-		Code: http.StatusOK,
-		Data: []response.FoodResponse{{Id: 1, FoodName: "Mie Ayam", FoodPrice: 15000}},
+		Code:    http.StatusOK,
+		Status:  "OK",
+		Message: "dari GetAllFood",
+		Data:    []response.FoodResponse{{Id: 1, FoodName: "Mie Ayam", FoodPrice: 15000}},
 	}
 	repo := &stubFoodRepo{
+		t:            t,
 		getAllFoodFn: func() response.WebResponse { return want },
 	}
 	svc := NewFoodService(repo, validator.New())
@@ -198,6 +288,9 @@ func TestFindAllDiteruskanApaAdanya(t *testing.T) {
 
 	if got.Code != want.Code {
 		t.Errorf("Code = %d, mau %d", got.Code, want.Code)
+	}
+	if got.Message != want.Message {
+		t.Errorf("response berasal dari %q, mau dari GetAllFood", got.Message)
 	}
 	foods, ok := got.Data.([]response.FoodResponse)
 	if !ok {
@@ -213,6 +306,7 @@ func TestFindAllDiteruskanApaAdanya(t *testing.T) {
 // ada sekarang, bukan membenarkannya — lihat "Batasan yang diketahui" di README.
 func TestFindByIdMeneruskanResponseNotFound(t *testing.T) {
 	repo := &stubFoodRepo{
+		t: t,
 		getFoodByIdFn: func(id uint) (response.WebResponse, bool) {
 			return notFoundResponse(), false
 		},
@@ -223,5 +317,8 @@ func TestFindByIdMeneruskanResponseNotFound(t *testing.T) {
 
 	if got.Code != http.StatusNotFound {
 		t.Errorf("Code = %d, mau %d", got.Code, http.StatusNotFound)
+	}
+	if got.Message != "Food not found" {
+		t.Errorf("Message = %q, mau response dari GetFoodById", got.Message)
 	}
 }
