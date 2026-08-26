@@ -16,6 +16,8 @@ import (
 //	Field fungsi yang dibiarkan nil adalah backstop: kalau method-nya
 //	ternyata dipanggil, test gagal lewat t.Fatalf dengan pesan jelas,
 //	bukan lewat panic yang mematikan seluruh test binary.
+//
+// Selalu dibuat lewat newStub agar field t tidak pernah nil.
 type stubFoodRepo struct {
 	t *testing.T
 
@@ -29,12 +31,23 @@ type stubFoodRepo struct {
 	createdFood models.Food
 	updatedFood models.Food
 	deletedID   uint
+	// lookedUpIDs merekam id yang diteruskan ke GetFoodById. Tanpa ini,
+	// service bisa memeriksa keberadaan food X lalu memutasi food Y dan
+	// tidak ada yang menyadarinya.
+	lookedUpIDs []uint
 	calls       []string
 }
 
+// newStub membuat stub yang siap pakai. Lewat konstruktor ini supaya field t
+// tidak mungkin lupa di-set: kalau t nil, backstop nil-fn merosot dari
+// t.Fatalf yang rapi menjadi nil pointer dereference plus goroutine dump.
+func newStub(t *testing.T) *stubFoodRepo {
+	return &stubFoodRepo{t: t}
+}
+
 func (s *stubFoodRepo) CreateFood(food models.Food) response.WebResponse {
+	s.t.Helper()
 	if s.createFoodFn == nil {
-		s.t.Helper()
 		s.t.Fatalf("CreateFood dipanggil padahal test tidak mengharapkannya")
 	}
 	s.calls = append(s.calls, "CreateFood")
@@ -43,8 +56,8 @@ func (s *stubFoodRepo) CreateFood(food models.Food) response.WebResponse {
 }
 
 func (s *stubFoodRepo) UpdateFood(food models.Food) response.WebResponse {
+	s.t.Helper()
 	if s.updateFoodFn == nil {
-		s.t.Helper()
 		s.t.Fatalf("UpdateFood dipanggil padahal test tidak mengharapkannya")
 	}
 	s.calls = append(s.calls, "UpdateFood")
@@ -53,8 +66,8 @@ func (s *stubFoodRepo) UpdateFood(food models.Food) response.WebResponse {
 }
 
 func (s *stubFoodRepo) DeleteFood(id uint) response.WebResponse {
+	s.t.Helper()
 	if s.deleteFoodFn == nil {
-		s.t.Helper()
 		s.t.Fatalf("DeleteFood dipanggil padahal test tidak mengharapkannya")
 	}
 	s.calls = append(s.calls, "DeleteFood")
@@ -63,8 +76,8 @@ func (s *stubFoodRepo) DeleteFood(id uint) response.WebResponse {
 }
 
 func (s *stubFoodRepo) GetAllFood() response.WebResponse {
+	s.t.Helper()
 	if s.getAllFoodFn == nil {
-		s.t.Helper()
 		s.t.Fatalf("GetAllFood dipanggil padahal test tidak mengharapkannya")
 	}
 	s.calls = append(s.calls, "GetAllFood")
@@ -72,11 +85,12 @@ func (s *stubFoodRepo) GetAllFood() response.WebResponse {
 }
 
 func (s *stubFoodRepo) GetFoodById(id uint) (response.WebResponse, bool) {
+	s.t.Helper()
 	if s.getFoodByIdFn == nil {
-		s.t.Helper()
 		s.t.Fatalf("GetFoodById dipanggil padahal test tidak mengharapkannya")
 	}
 	s.calls = append(s.calls, "GetFoodById")
+	s.lookedUpIDs = append(s.lookedUpIDs, id)
 	return s.getFoodByIdFn(id)
 }
 
@@ -88,4 +102,19 @@ func (s *stubFoodRepo) called(name string) bool {
 		}
 	}
 	return false
+}
+
+// assertLookedUp memastikan GetFoodById dipanggil dengan urutan id tertentu.
+func (s *stubFoodRepo) assertLookedUp(want ...uint) {
+	s.t.Helper()
+	if len(s.lookedUpIDs) != len(want) {
+		s.t.Errorf("id yang di-lookup = %v, mau %v", s.lookedUpIDs, want)
+		return
+	}
+	for i, w := range want {
+		if s.lookedUpIDs[i] != w {
+			s.t.Errorf("id yang di-lookup = %v, mau %v", s.lookedUpIDs, want)
+			return
+		}
+	}
 }
