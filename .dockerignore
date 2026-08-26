@@ -1,0 +1,12 @@
+.git
+.gitignore
+.mailmap
+.env
+*_test.go
+coverage.out
+coverage.html
+README.md
+docs/
+Dockerfile
+.dockerignore
+docker-compose.yml

@@ -1,0 +1,28 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+      MYSQL_DATABASE: go-food-store
+    ports:
+      - "3306:3306"
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: .
+    environment:
+      DB_USER: root
+      DB_PASSWORD: ""
+      DB_HOST: mysql
+      DB_PORT: "3306"
+      DB_NAME: go-food-store
+      SERVER_ADDR: ":8080"
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy

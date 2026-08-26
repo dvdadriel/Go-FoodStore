@@ -255,7 +255,7 @@ func (t *TransactionRepositoriesImpl) GetAllPaidTransaction() response.WebRespon
 	return response.WebResponse{
 		Code:    http.StatusOK,
 		Status:  "OK",
-		Message: "Successfuly get all paid transaction",
+		Message: "Successfully get all paid transaction",
 		Data:    paidTransaction,
 	}
 }
