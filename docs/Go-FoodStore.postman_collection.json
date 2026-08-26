@@ -1,0 +1,466 @@
+{
+  "info": {
+    "name": "Go-FoodStore",
+    "description": "REST API pemesanan makanan (Go + gorm + gorilla/mux + MySQL).\n\nJalankan `docker compose up --build` lalu pakai collection ini apa adanya.\n\nCatatan: route koleksi memakai trailing slash (`/food/`, bukan `/food`).\n\nUrutan yang disarankan untuk alur penuh:\n1. Food > Create food\n2. Customer > Create customer\n3. Transaction > Create transaction\n4. Transaction > Get unpaid transactions\n5. Transaction > Accept payment\n6. Transaction > Get paid transactions\n\nPENTING: status code HTTP selalu 200. Tidak ada w.WriteHeader di repo, jadi kode 400/404/405/304 hanya muncul di field `Code` dalam body, bukan di status HTTP. Kalau menulis test di Postman, periksa `pm.response.json().Code`, bukan `pm.response.code`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Customer",
+      "item": [
+        {
+          "name": "Get all customers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cust/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cust",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create customer",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"CustomerName\": \"David Adriel\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/cust/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cust",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get customer by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cust/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cust",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Update customer",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"CustomerName\": \"David Adriel Alvyn\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/cust/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cust",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete customer",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/cust/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "cust",
+                "1"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Food",
+      "item": [
+        {
+          "name": "Get all food",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/food/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "food",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create food",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"FoodName\": \"Nasi Goreng\",\n  \"FoodPrice\": 25000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/food/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "food",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get food by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/food/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "food",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get food by id (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/food/999",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "food",
+                "999"
+              ]
+            },
+            "description": "Id yang tidak ada — mengembalikan 404 Food not found."
+          }
+        },
+        {
+          "name": "Create food (400 validasi)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"FoodName\": \"\",\n  \"FoodPrice\": 0\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/food/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "food",
+                ""
+              ]
+            },
+            "description": "FoodName kosong dan FoodPrice nol keduanya ditolak validator (tag `required`). Mengembalikan 400 tanpa menyentuh database."
+          }
+        },
+        {
+          "name": "Update food",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"FoodName\": \"Nasi Goreng Spesial\",\n  \"FoodPrice\": 30000\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/food/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "food",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Delete food",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/food/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "food",
+                "1"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Transaction",
+      "item": [
+        {
+          "name": "Create transaction",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"CustomerId\": 1,\n  \"Food\": [\n    { \"FoodId\": 1, \"Quantity\": 2 }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transaction/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transaction",
+                ""
+              ]
+            },
+            "description": "Butuh customer dan food yang sudah ada lebih dulu."
+          }
+        },
+        {
+          "name": "Get unpaid transactions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/transaction/unpaid/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transaction",
+                "unpaid",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get paid transactions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/transaction/paid/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transaction",
+                "paid",
+                ""
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get transaction by id",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/transaction/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transaction",
+                "1"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Accept payment",
+          "request": {
+            "method": "PUT",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/transaction/acc/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transaction",
+                "acc",
+                "1"
+              ]
+            },
+            "description": "Menandai transaksi lunas. Setelah ini transaksi berpindah dari /transaction/unpaid/ ke /transaction/paid/."
+          }
+        },
+        {
+          "name": "Update transaction",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"CustomerId\": 1,\n  \"Food\": [\n    { \"FoodId\": 1, \"Quantity\": 3 }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/transaction/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transaction",
+                "1"
+              ]
+            },
+            "description": "Mengembalikan 304 \"Can't delete paid transaction\" kalau transaksi sudah lunas — logika bisnis yang disengaja. Catatan: pesannya menyebut \"delete\" padahal ini update (salah tempel di repository)."
+          }
+        },
+        {
+          "name": "Delete transaction",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/transaction/1",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "transaction",
+                "1"
+              ]
+            },
+            "description": "Mengembalikan 304 \"Can't delete paid transaction\" kalau transaksi sudah lunas — logika bisnis yang disengaja."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Error handling",
+      "item": [
+        {
+          "name": "Route tidak terdaftar (404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/nope",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "nope"
+              ]
+            },
+            "description": "Ditangani router.NotFoundHandler → exception.NotFoundErr."
+          }
+        },
+        {
+          "name": "Method salah (405)",
+          "request": {
+            "method": "PATCH",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/food/",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "food",
+                ""
+              ]
+            },
+            "description": "Ditangani router.MethodNotAllowedHandler → exception.NotAllowedErr."
+          }
+        }
+      ]
+    }
+  ]
+}
