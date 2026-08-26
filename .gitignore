@@ -1,0 +1,13 @@
+# secrets
+.env
+
+# build
+go-food-store
+*.exe
+/bin/
+
+# coverage
+coverage.out
+coverage.html
+
+.DS_Store
