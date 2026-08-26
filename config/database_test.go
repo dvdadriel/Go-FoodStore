@@ -13,6 +13,10 @@ import (
 // Tanpa ini, developer yang baru menyalin .env.example ke shell-nya akan
 // melihat suite merah di checkout yang bersih — justru orang yang paling
 // mungkin sedang mencoba repo ini.
+//
+// Test yang memakai helper ini TIDAK boleh memanggil t.Parallel(). t.Setenv
+// menegakkan aturan itu dengan panic; os.Unsetenv di sini tidak, jadi test
+// paralel akan merusak sibling-nya dan berlomba dengan pemulihannya sendiri.
 func clearDBEnv(t *testing.T) {
 	t.Helper()
 	for _, key := range []string{"DB_USER", "DB_PASSWORD", "DB_HOST", "DB_PORT", "DB_NAME"} {
@@ -20,11 +24,14 @@ func clearDBEnv(t *testing.T) {
 		if !ok {
 			continue
 		}
-		// key dan old di-capture eksplisit supaya tidak bergantung pada
-		// aturan per-iterasi Go 1.22+ untuk bisa dibaca dengan benar.
-		key, old := key, old
-		t.Cleanup(func() { os.Setenv(key, old) })
-		os.Unsetenv(key)
+		t.Cleanup(func() {
+			if err := os.Setenv(key, old); err != nil {
+				t.Errorf("memulihkan %s: %v", key, err)
+			}
+		})
+		if err := os.Unsetenv(key); err != nil {
+			t.Fatalf("menghapus %s: %v", key, err)
+		}
 	}
 }
 
@@ -33,10 +40,12 @@ func TestDSNMemakaiDefaultSaatEnvKosong(t *testing.T) {
 
 	got := DSN()
 
-	for _, want := range []string{"root", "tcp(localhost:3306)", "go-food-store", "parseTime=True"} {
-		if !strings.Contains(got, want) {
-			t.Errorf("DSN() = %q, tidak memuat %q", got, want)
-		}
+	// Dengan environment dibersihkan seluruh string bersifat deterministik,
+	// jadi dibandingkan utuh: cek per-fragmen tidak bisa menangkap pemisah
+	// yang rusak ("root@tcp", "//", atau "?" yang hilang).
+	want := "root:@tcp(localhost:3306)/go-food-store?charset=utf8mb4&parseTime=True&loc=Local"
+	if got != want {
+		t.Errorf("DSN() = %q, mau %q", got, want)
 	}
 }
 
@@ -55,6 +64,9 @@ func TestDSNMembacaEnv(t *testing.T) {
 	}
 }
 
+// Sebagian besar tumpang-tindih dengan test default di atas; yang dijaga di
+// sini khusus jalur "DB_PASSWORD di-SET secara eksplisit ke string kosong",
+// bukan jalur "DB_PASSWORD tidak di-set sama sekali".
 func TestDSNMengizinkanPasswordKosong(t *testing.T) {
 	t.Setenv("DB_USER", "root")
 	t.Setenv("DB_PASSWORD", "")

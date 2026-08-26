@@ -1,6 +1,7 @@
 package foodservice
 
 import (
+	"slices"
 	"testing"
 
 	"go-food-store/json/response"
@@ -107,14 +108,7 @@ func (s *stubFoodRepo) called(name string) bool {
 // assertLookedUp memastikan GetFoodById dipanggil dengan urutan id tertentu.
 func (s *stubFoodRepo) assertLookedUp(want ...uint) {
 	s.t.Helper()
-	if len(s.lookedUpIDs) != len(want) {
+	if !slices.Equal(s.lookedUpIDs, want) {
 		s.t.Errorf("id yang di-lookup = %v, mau %v", s.lookedUpIDs, want)
-		return
-	}
-	for i, w := range want {
-		if s.lookedUpIDs[i] != w {
-			s.t.Errorf("id yang di-lookup = %v, mau %v", s.lookedUpIDs, want)
-			return
-		}
 	}
 }
