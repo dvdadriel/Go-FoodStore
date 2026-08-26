@@ -17,7 +17,7 @@ func main() {
 	router := config.SetupModel(db, validate)
 
 	server := http.Server{
-		Addr:    "localhost:8080",
+		Addr:    config.ServerAddr(),
 		Handler: router,
 	}
 	err := server.ListenAndServe()
