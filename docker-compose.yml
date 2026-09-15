@@ -26,3 +26,10 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    # Tanpa ini `--wait` menganggap api sehat begitu prosesnya jalan, padahal
+    # koneksi DB dan migrasi belum selesai. wget ada di image alpine.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/food/ || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
