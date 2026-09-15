@@ -12,3 +12,7 @@ coverage.out
 coverage.html
 
 .DS_Store
+.claude
+.claude-flow
+go-foodstore-live-proof.md
+docs/live-proof-plan.md
