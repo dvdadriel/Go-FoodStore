@@ -79,8 +79,12 @@ jobs:
       # Tanpa ini job tidak pernah bisa merah: kontrak API selalu membalas
       # HTTP 200, kode error hanya di body — route yang rusak pun lolos
       # `set -e` maupun `curl -f`. Satu penanda dari ujung alur sudah cukup.
+      # Blok, bukan satu baris. `run: grep -q '"AlreadyPay": true' proof.md`
+      # berisi ": " di tengah skalar, dan YAML membacanya sebagai awal mapping
+      # baru — seluruh file jadi tidak sah dan workflow-nya tidak pernah jalan.
       - name: Pastikan alurnya benar-benar jalan
-        run: grep -q '"AlreadyPay": true' proof.md
+        run: |
+          grep -q '"AlreadyPay": true' proof.md
 
       - uses: actions/upload-artifact@v4
         if: always()
