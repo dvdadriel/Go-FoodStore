@@ -54,9 +54,8 @@ func (f *FoodServiceImpl) Delete(FoodId uint) response.WebResponse {
 }
 
 // FindAll implements FoodService.
-func (f *FoodServiceImpl) FindAll() response.WebResponse {
-	response := f.FoodRepo.GetAllFood()
-	return response
+func (f *FoodServiceImpl) FindAll(page request.Page) response.WebResponse {
+	return f.FoodRepo.GetAllFood(page)
 }
 
 // FindById implements FoodService.

@@ -9,8 +9,8 @@ type TransactionService interface {
 	Create(transaction request.CreateTransactionReq) response.WebResponse
 	Update(transaction request.UpdateTransactionReq) response.WebResponse
 	Delete(transactionId uint) response.WebResponse
-	FindAllPaid() response.WebResponse
-	FindAllUnpaid() response.WebResponse
+	FindAllPaid(page request.Page) response.WebResponse
+	FindAllUnpaid(page request.Page) response.WebResponse
 	AcceptPayment(transactionId uint) response.WebResponse
 	FindById(transactionId uint) response.WebResponse
 }

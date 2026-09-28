@@ -238,13 +238,13 @@ func (t *TransactionRepositoriesImpl) UpdateTransaction(req request.UpdateTransa
 }
 
 // GetAllPaidTransaction implements TransactionRepositories.
-func (t *TransactionRepositoriesImpl) GetAllPaidTransaction() response.WebResponse {
-	return t.listByPaymentStatus(true, "Successfully get all paid transaction")
+func (t *TransactionRepositoriesImpl) GetAllPaidTransaction(page request.Page) response.WebResponse {
+	return t.listByPaymentStatus(page, true, "Successfully get all paid transaction")
 }
 
 // GetUnpaidTransaction implements TransactionRepositories.
-func (t *TransactionRepositoriesImpl) GetUnpaidTransaction() response.WebResponse {
-	return t.listByPaymentStatus(false, "Successfully get all unpaid transaction")
+func (t *TransactionRepositoriesImpl) GetUnpaidTransaction(page request.Page) response.WebResponse {
+	return t.listByPaymentStatus(page, false, "Successfully get all unpaid transaction")
 }
 
 // listByPaymentStatus mengambil daftar transaksi beserta itemnya.
@@ -252,9 +252,9 @@ func (t *TransactionRepositoriesImpl) GetUnpaidTransaction() response.WebRespons
 // Daftar kosong membalas 200 dengan array kosong, bukan 404. Tidak adanya
 // transaksi lunas bukan kesalahan — itu jawaban yang benar untuk toko yang
 // baru buka, dan client tidak perlu memperlakukannya sebagai error.
-func (t *TransactionRepositoriesImpl) listByPaymentStatus(paid bool, message string) response.WebResponse {
+func (t *TransactionRepositoriesImpl) listByPaymentStatus(page request.Page, paid bool, message string) response.WebResponse {
 	var transactions []models.Transaction
-	if err := t.DB.Preload("Customer").Where("already_pay = ?", paid).Find(&transactions).Error; err != nil {
+	if err := t.DB.Preload("Customer").Where("already_pay = ?", paid).Limit(page.Limit).Offset(page.Offset).Order("id").Find(&transactions).Error; err != nil {
 		return serverErr("Can't get transaction due to server error")
 	}
 

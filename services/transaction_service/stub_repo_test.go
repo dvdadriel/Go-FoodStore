@@ -55,12 +55,12 @@ func (s *stubTransactionRepo) DeleteTransaction(uint) response.WebResponse {
 	return response.WebResponse{}
 }
 
-func (s *stubTransactionRepo) GetAllPaidTransaction() response.WebResponse {
+func (s *stubTransactionRepo) GetAllPaidTransaction(request.Page) response.WebResponse {
 	s.t.Fatalf("GetAllPaidTransaction dipanggil padahal test tidak mengharapkannya")
 	return response.WebResponse{}
 }
 
-func (s *stubTransactionRepo) GetUnpaidTransaction() response.WebResponse {
+func (s *stubTransactionRepo) GetUnpaidTransaction(request.Page) response.WebResponse {
 	s.t.Fatalf("GetUnpaidTransaction dipanggil padahal test tidak mengharapkannya")
 	return response.WebResponse{}
 }

@@ -82,6 +82,12 @@ Semua response memakai envelope `{ Code, Status, Message, Data }`.
 
 Perhatikan **trailing slash** pada route koleksi (`/food/`, bukan `/food`).
 
+Semua endpoint daftar menerima `?page=` dan `?limit=` (default 20, maksimum 100). Nilai yang tidak masuk akal dibetulkan diam-diam, bukan ditolak — `?page=abc` sama dengan halaman pertama. Response tidak membawa jumlah total: menghitungnya berarti satu query `COUNT` tambahan di tiap permintaan, sementara "masih ada lagi atau tidak" sudah terjawab oleh jumlah baris yang kembali sama dengan `limit`.
+
+```bash
+$ curl -s 'localhost:8080/food/?page=2&limit=5'
+```
+
 Postman collection: [`docs/Go-FoodStore.postman_collection.json`](docs/Go-FoodStore.postman_collection.json)
 
 ## Autentikasi

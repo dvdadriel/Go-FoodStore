@@ -4,6 +4,7 @@ import (
 	"slices"
 	"testing"
 
+	"go-food-store/json/request"
 	"go-food-store/json/response"
 	"go-food-store/models"
 )
@@ -25,7 +26,7 @@ type stubFoodRepo struct {
 	createFoodFn  func(models.Food) response.WebResponse
 	updateFoodFn  func(models.Food) response.WebResponse
 	deleteFoodFn  func(uint) response.WebResponse
-	getAllFoodFn  func() response.WebResponse
+	getAllFoodFn  func(request.Page) response.WebResponse
 	getFoodByIdFn func(uint) (response.WebResponse, bool)
 
 	// Perekam panggilan, untuk assertion.
@@ -76,13 +77,13 @@ func (s *stubFoodRepo) DeleteFood(id uint) response.WebResponse {
 	return s.deleteFoodFn(id)
 }
 
-func (s *stubFoodRepo) GetAllFood() response.WebResponse {
+func (s *stubFoodRepo) GetAllFood(page request.Page) response.WebResponse {
 	s.t.Helper()
 	if s.getAllFoodFn == nil {
 		s.t.Fatalf("GetAllFood dipanggil padahal test tidak mengharapkannya")
 	}
 	s.calls = append(s.calls, "GetAllFood")
-	return s.getAllFoodFn()
+	return s.getAllFoodFn(page)
 }
 
 func (s *stubFoodRepo) GetFoodById(id uint) (response.WebResponse, bool) {

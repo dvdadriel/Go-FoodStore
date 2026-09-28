@@ -53,8 +53,8 @@ func (c *CustServiceImpl) Delete(CustId uint) response.WebResponse {
 }
 
 // FindAll implements CustService.
-func (c *CustServiceImpl) FindAll() response.WebResponse {
-	response := c.CustRepo.GetAllCustomer()
+func (c *CustServiceImpl) FindAll(page request.Page) response.WebResponse {
+	response := c.CustRepo.GetAllCustomer(page)
 	return response
 }
 

@@ -61,9 +61,9 @@ func (c *CustomerRepoImpl) DeleteCustomer(CustId uint) response.WebResponse {
 }
 
 // GetAllCustomer implements CustomerRepo.
-func (c *CustomerRepoImpl) GetAllCustomer() response.WebResponse {
+func (c *CustomerRepoImpl) GetAllCustomer(page request.Page) response.WebResponse {
 	var customers []models.Customer
-	err := c.DB.Find(&customers).Error
+	err := c.DB.Limit(page.Limit).Offset(page.Offset).Order("id").Find(&customers).Error
 	if err != nil {
 		return response.WebResponse{
 			Code:    http.StatusInternalServerError,

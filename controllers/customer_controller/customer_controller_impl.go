@@ -47,7 +47,7 @@ func (c *CustomerControllerImpl) DeleteCust(w http.ResponseWriter, r *http.Reque
 
 // GetAllFood implements FoodController.
 func (c *CustomerControllerImpl) GetAllCust(w http.ResponseWriter, r *http.Request) {
-	response := c.CustService.FindAll()
+	response := c.CustService.FindAll(request.PageFrom(r))
 	helpers.WriteJSON(w, response)
 }
 

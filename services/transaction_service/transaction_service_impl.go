@@ -76,13 +76,13 @@ func (t *TransactionServiceImpl) Delete(transactionId uint) response.WebResponse
 }
 
 // FindAllPaid implements TransactionService.
-func (t *TransactionServiceImpl) FindAllPaid() response.WebResponse {
-	return t.TransactionRepo.GetAllPaidTransaction()
+func (t *TransactionServiceImpl) FindAllPaid(page request.Page) response.WebResponse {
+	return t.TransactionRepo.GetAllPaidTransaction(page)
 }
 
 // FindAllUnpaid implements TransactionService.
-func (t *TransactionServiceImpl) FindAllUnpaid() response.WebResponse {
-	return t.TransactionRepo.GetUnpaidTransaction()
+func (t *TransactionServiceImpl) FindAllUnpaid(page request.Page) response.WebResponse {
+	return t.TransactionRepo.GetUnpaidTransaction(page)
 }
 
 // FindById implements TransactionService.

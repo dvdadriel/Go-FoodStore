@@ -47,7 +47,7 @@ func (f *FoodControllerImpl) DeleteFood(w http.ResponseWriter, r *http.Request) 
 
 // GetAllFood implements FoodController.
 func (f *FoodControllerImpl) GetAllFood(w http.ResponseWriter, r *http.Request) {
-	response := f.FoodService.FindAll()
+	response := f.FoodService.FindAll(request.PageFrom(r))
 	helpers.WriteJSON(w, response)
 }
 

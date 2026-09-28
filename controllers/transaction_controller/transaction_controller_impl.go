@@ -59,13 +59,13 @@ func (t *TransactionControllerImpl) DeleteTransaction(w http.ResponseWriter, r *
 
 // FindAllPaidTransaction implements TransactionController.
 func (t *TransactionControllerImpl) FindAllPaidTransaction(w http.ResponseWriter, r *http.Request) {
-	response := t.TransactionService.FindAllPaid()
+	response := t.TransactionService.FindAllPaid(request.PageFrom(r))
 	helpers.WriteJSON(w, response)
 }
 
 // FindAllUnpaidTransaction implements TransactionController.
 func (t *TransactionControllerImpl) FindAllUnpaidTransaction(w http.ResponseWriter, r *http.Request) {
-	response := t.TransactionService.FindAllUnpaid()
+	response := t.TransactionService.FindAllUnpaid(request.PageFrom(r))
 	helpers.WriteJSON(w, response)
 }
 

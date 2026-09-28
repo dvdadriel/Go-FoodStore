@@ -61,9 +61,9 @@ func (f *FoodRepoImpl) DeleteFood(FoodId uint) response.WebResponse {
 }
 
 // GetAllFood implements FoodRepo.
-func (f *FoodRepoImpl) GetAllFood() response.WebResponse {
+func (f *FoodRepoImpl) GetAllFood(page request.Page) response.WebResponse {
 	foods := []models.Food{}
-	err := f.DB.Find(&foods).Error
+	err := f.DB.Limit(page.Limit).Offset(page.Offset).Order("id").Find(&foods).Error
 	if err != nil {
 		return response.WebResponse{
 			Code:    http.StatusInternalServerError,

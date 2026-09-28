@@ -279,10 +279,10 @@ func TestFindAllDiteruskanApaAdanya(t *testing.T) {
 		Data:    []response.FoodResponse{{Id: 1, FoodName: "Mie Ayam", FoodPrice: 15000}},
 	}
 	repo := newStub(t)
-	repo.getAllFoodFn = func() response.WebResponse { return want }
+	repo.getAllFoodFn = func(request.Page) response.WebResponse { return want }
 	svc := NewFoodService(repo, validator.New())
 
-	got := svc.FindAll()
+	got := svc.FindAll(request.Page{Number: 1, Limit: 20})
 
 	if got.Code != want.Code {
 		t.Errorf("Code = %d, mau %d", got.Code, want.Code)
