@@ -21,6 +21,7 @@ services:
       DB_PORT: "3306"
       DB_NAME: go-food-store
       SERVER_ADDR: ":8080"
+      CORS_ORIGIN: "*"
     ports:
       - "8080:8080"
     depends_on:
@@ -29,7 +30,7 @@ services:
     # Tanpa ini `--wait` menganggap api sehat begitu prosesnya jalan, padahal
     # koneksi DB dan migrasi belum selesai. wget ada di image alpine.
     healthcheck:
-      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/food/ || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health || exit 1"]
       interval: 3s
       timeout: 3s
       retries: 20

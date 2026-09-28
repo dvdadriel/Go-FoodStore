@@ -8,9 +8,12 @@ import (
 	"net/http"
 
 	"github.com/gorilla/mux"
+	"gorm.io/gorm"
 )
 
-func NewRouter(router *mux.Router, cust customercontroller.CustomerController, food foodcontroller.FoodController, transaction transactioncontroller.TransactionController) {
+func NewRouter(router *mux.Router, db *gorm.DB, cust customercontroller.CustomerController, food foodcontroller.FoodController, transaction transactioncontroller.TransactionController) {
+	router.HandleFunc("/health", Health(db)).Methods("GET")
+
 	router.HandleFunc("/cust/", cust.GetAllCust).Methods("GET")
 	router.HandleFunc("/cust/", cust.CreateCust).Methods("POST")
 	router.HandleFunc("/cust/{custId}", cust.GetCustById).Methods("GET")
