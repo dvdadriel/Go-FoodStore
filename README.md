@@ -47,53 +47,91 @@ Konfigurasi dibaca dari environment (`config/env.go`), bukan hardcoded:
 | `DB_PORT` | `3306` | |
 | `DB_NAME` | `go-food-store` | |
 | `SERVER_ADDR` | `:8080` | Semua interface, bukan `localhost` — kalau loopback, port mapping Docker tidak tembus |
+| `CORS_ORIGIN` | `*` | Origin frontend yang diizinkan |
+| `JWT_SECRET` | *(wajib)* | Minimal 32 karakter. Aplikasi menolak start tanpa ini |
+| `TOKEN_TTL_SECONDS` | `3600` | Masa berlaku token akses |
+| `ADMIN_USERNAME` | *(kosong)* | Admin pertama, dibuat saat start kalau belum ada |
+| `ADMIN_PASSWORD` | *(kosong)* | Kalau salah satunya kosong, admin tidak dibuat |
 
 ## Endpoint
 
 Semua response memakai envelope `{ Code, Status, Message, Data }`.
 
-| Method | Path | Keterangan |
-|---|---|---|
-| `GET` | `/cust/` | Semua customer |
-| `POST` | `/cust/` | Buat customer |
-| `GET` | `/cust/{custId}` | Customer per id |
-| `PUT` | `/cust/{custId}` | Update customer |
-| `DELETE` | `/cust/{custId}` | Hapus customer |
-| `GET` | `/food/` | Semua menu |
-| `POST` | `/food/` | Buat menu |
-| `GET` | `/food/{foodId}` | Menu per id |
-| `PUT` | `/food/{foodId}` | Update menu |
-| `DELETE` | `/food/{foodId}` | Hapus menu |
-| `GET` | `/transaction/unpaid/` | Transaksi belum lunas |
-| `GET` | `/transaction/paid/` | Transaksi sudah lunas |
-| `POST` | `/transaction/` | Buat transaksi |
-| `GET` | `/transaction/{transactionId}` | Transaksi per id |
-| `PUT` | `/transaction/{transactionId}` | Update transaksi |
-| `DELETE` | `/transaction/{transactionId}` | Hapus transaksi |
-| `PUT` | `/transaction/acc/{transactionId}` | Tandai transaksi lunas |
+| Method | Path | Akses | Keterangan |
+|---|---|---|---|
+| `GET` | `/health` | publik | Status proses dan koneksi database |
+| `POST` | `/auth/register` | publik | Daftar akun baru (selalu peran `customer`) |
+| `POST` | `/auth/login` | publik | Tukar kredensial dengan token |
+| `GET` | `/food/` | publik | Semua menu |
+| `GET` | `/food/{foodId}` | publik | Menu per id |
+| `GET` | `/cust/` | admin | Semua customer |
+| `POST` | `/cust/` | admin | Buat customer |
+| `GET` | `/cust/{custId}` | admin | Customer per id |
+| `PUT` | `/cust/{custId}` | admin | Update customer |
+| `DELETE` | `/cust/{custId}` | admin | Hapus customer |
+| `POST` | `/food/` | admin | Buat menu |
+| `PUT` | `/food/{foodId}` | admin | Update menu |
+| `DELETE` | `/food/{foodId}` | admin | Hapus menu |
+| `GET` | `/transaction/unpaid/` | admin | Transaksi belum lunas |
+| `GET` | `/transaction/paid/` | admin | Transaksi sudah lunas |
+| `POST` | `/transaction/` | login | Buat transaksi |
+| `GET` | `/transaction/{transactionId}` | login | Transaksi per id |
+| `PUT` | `/transaction/{transactionId}` | login | Update transaksi |
+| `DELETE` | `/transaction/{transactionId}` | login | Hapus transaksi |
+| `PUT` | `/transaction/acc/{transactionId}` | admin | Tandai transaksi lunas |
 
 Perhatikan **trailing slash** pada route koleksi (`/food/`, bukan `/food`).
 
 Postman collection: [`docs/Go-FoodStore.postman_collection.json`](docs/Go-FoodStore.postman_collection.json)
+
+## Autentikasi
+
+Token bertanda tangan HMAC-SHA256, dikirim lewat header `Authorization: Bearer <token>`. Kata sandi disimpan sebagai PBKDF2-HMAC-SHA256 (210.000 iterasi, salt acak 16 byte per pengguna).
+
+Keduanya memakai pustaka standar saja — `crypto/pbkdf2` masuk stdlib di Go 1.24 — jadi tidak ada dependensi baru untuk ini. Formatnya bukan JWT: satu algoritma, tanpa header algoritma yang bisa dipalsukan, sekitar lima puluh baris di `auth/token.go`. Ganti ke JWT betulan kalau nanti ada layanan lain yang harus ikut memverifikasi token yang sama.
+
+```bash
+$ curl -s -X POST localhost:8080/auth/login -H 'Content-Type: application/json' \
+    -d '{"Username":"admin","Password":"admin12345"}'
+{
+  "Code": 200, "Status": "OK", "Message": "Successfully login",
+  "Data": {
+    "Token": "eyJzdWIiOjEsInVzciI6ImFkbWluIiwicm9sZSI6ImFkbWluIiwiZXhwIjoxNzU5MDAwMDAwfQ.T0lz...",
+    "ExpiresIn": 3600,
+    "User": { "Id": 1, "Username": "admin", "Role": "admin" }
+  }
+}
+```
+
+Dua peran: **admin** mengelola menu, customer, dan pembayaran; **customer** membuat dan melihat transaksi. `/auth/register` selalu menghasilkan peran customer — kalau peran bisa diminta sendiri saat mendaftar, siapa pun tinggal mendaftar sebagai admin. Admin pertama lahir dari `ADMIN_USERNAME`/`ADMIN_PASSWORD` saat aplikasi start.
+
+Tanpa token, endpoint terjaga membalas `401`; dengan token yang sah tapi peran yang salah, `403`:
+
+```bash
+$ curl -s -o /dev/null -w '%{http_code}\n' -X POST localhost:8080/food/
+401
+$ curl -s -o /dev/null -w '%{http_code}\n' -X POST localhost:8080/food/ -H "Authorization: Bearer $TOKEN_CUSTOMER"
+403
+```
 
 ### Contoh alur lengkap
 
 Output di bawah ini diambil dari stack yang benar-benar berjalan, bukan dikarang.
 
 ```bash
-$ curl -s -X POST localhost:8080/food/ -H 'Content-Type: application/json' \
-    -d '{"FoodName":"Nasi Goreng","FoodPrice":25000}'
+$ curl -s -X POST localhost:8080/food/ -H "Authorization: Bearer $TOKEN" \
+    -H 'Content-Type: application/json' -d '{"FoodName":"Nasi Goreng","FoodPrice":25000}'
 { "Code": 200, "Status": "OK", "Message": "Successfully create new food", "Data": null }
 
-$ curl -s -X POST localhost:8080/cust/ -H 'Content-Type: application/json' \
-    -d '{"CustomerName":"David Adriel"}'
+$ curl -s -X POST localhost:8080/cust/ -H "Authorization: Bearer $TOKEN" \
+    -H 'Content-Type: application/json' -d '{"CustomerName":"David Adriel"}'
 { "Code": 200, "Status": "OK", "Message": "Successfully create new customer", "Data": null }
 
-$ curl -s -X POST localhost:8080/transaction/ -H 'Content-Type: application/json' \
-    -d '{"CustomerId":1,"Food":[{"FoodId":1,"Quantity":2}]}'
-{ "Code": 200, "Status": "OK", "Message": "Successfully create new transaction", "Data": null }
+$ curl -s -X POST localhost:8080/transaction/ -H "Authorization: Bearer $TOKEN" \
+    -H 'Content-Type: application/json' -d '{"CustomerId":1,"Food":[{"FoodId":1,"Quantity":2}]}'
+{ "Code": 200, "Status": "OK", "Message": "Successfully create new transaction", "Data": { "TransactionId": 1 } }
 
-$ curl -s localhost:8080/transaction/unpaid/
+$ curl -s localhost:8080/transaction/unpaid/ -H "Authorization: Bearer $TOKEN"
 {
   "Code": 200, "Status": "OK", "Message": "Successfully get all unpaid data",
   "Data": [{
@@ -105,7 +143,7 @@ $ curl -s localhost:8080/transaction/unpaid/
   }]
 }
 
-$ curl -s -X PUT localhost:8080/transaction/acc/1
+$ curl -s -X PUT localhost:8080/transaction/acc/1 -H "Authorization: Bearer $TOKEN"
 { "Code": 200, "Status": "OK", "Message": "Successfully update transaction status", "Data": null }
 ```
 
@@ -144,7 +182,7 @@ Suite ini diuji dengan mutation testing: dari 25 mutasi yang disuntikkan ke kode
 `PUT /transaction/{id}` dan `DELETE /transaction/{id}` mengembalikan `409 Conflict` kalau transaksi sudah ditandai lunas:
 
 ```bash
-$ curl -s -X DELETE localhost:8080/transaction/1
+$ curl -s -X DELETE localhost:8080/transaction/1 -H "Authorization: Bearer $TOKEN"
 { "Code": 409, "Status": "Conflict", "Message": "Can't delete paid transaction", "Data": null }
 ```
 
@@ -162,7 +200,8 @@ Dicantumkan terbuka karena ini keputusan sadar atau cacat yang sudah diketahui, 
 - **`FindById` mengabaikan flag `found`** dari repository dan meneruskan response apa pun yang diterima. Hasilnya kebetulan benar karena repository sudah mengisi response 404, tapi kebenarannya bergantung pada kebetulan itu. Ada test yang mendokumentasikan perilaku ini — bukan membenarkannya.
 - **Pesan validasi tidak konsisten**: `Create` memakai `"Please check the request"`, `Update` memakai `"Please check your request"`. Sekarang keduanya terpaku oleh test, jadi menyeragamkannya kelak adalah perubahan kontrak yang disengaja, bukan diam-diam.
 - **`go-playground/validator` masih v9** dan sudah tidak dipelihara. Migrasi ke v10 menyentuh seluruh service dan controller, jadi sengaja di luar cakupan. Efek sampingnya: v9 adalah module `+incompatible` tanpa `go.mod` sendiri, sehingga `go mod tidy` menarik dependensi test-only miliknya (`gopkg.in/go-playground/assert.v1`) menjadi entri indirect di sini. Ia tidak ada di build graph (`go list -deps ./...` tidak memuatnya); menghapusnya manual akan dibatalkan oleh pemeriksaan `go mod tidy` di CI.
-- **Tidak ada autentikasi.** Semua endpoint terbuka.
+- **Kepemilikan transaksi belum dicek.** Setiap pengguna yang login bisa membaca dan mengubah transaksi milik siapa pun, karena tabel `users` belum terhubung ke tabel `customers`. Peran sudah memisahkan admin dari customer; kepemilikan per baris belum.
+- **Token tidak bisa dicabut.** Token yang bocor tetap berlaku sampai `TOKEN_TTL_SECONDS` habis. Selama masa berlakunya satu jam ini masih sepadan; kalau dipanjangkan, perlu daftar cabut.
 - **`helpers.PanicHelper` melakukan panic pada error koneksi**, sehingga aplikasi mati saat start kalau database belum siap. Karena itu `docker-compose.yml` memakai healthcheck pada MySQL dan `api` menunggu `service_healthy` — tanpa itu container `api` panic sebelum MySQL menerima koneksi.
 
 ## Lisensi

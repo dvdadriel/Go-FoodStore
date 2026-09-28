@@ -20,6 +20,7 @@ func main() {
 	validate := validator.New()
 
 	config.MigrateAllTable(db)
+	config.SeedAdmin(db)
 
 	server := &http.Server{
 		Addr:              config.ServerAddr(),

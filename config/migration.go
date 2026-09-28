@@ -8,7 +8,8 @@ import (
 )
 
 func MigrateAllTable(db *gorm.DB) {
-	err := db.AutoMigrate(&models.Food{},
+	err := db.AutoMigrate(&models.User{},
+		&models.Food{},
 		&models.Customer{},
 		&models.Transaction{},
 		&models.Transaction_Food{})

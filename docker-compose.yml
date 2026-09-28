@@ -22,6 +22,12 @@ services:
       DB_NAME: go-food-store
       SERVER_ADDR: ":8080"
       CORS_ORIGIN: "*"
+      # Nilai pengembangan. Di luar mesin sendiri keduanya harus datang dari
+      # secret store, bukan dari file yang ikut masuk git.
+      JWT_SECRET: "kunci-pengembangan-lokal-minimal-32-karakter"
+      TOKEN_TTL_SECONDS: "3600"
+      ADMIN_USERNAME: "admin"
+      ADMIN_PASSWORD: "admin12345"
     ports:
       - "8080:8080"
     depends_on:
