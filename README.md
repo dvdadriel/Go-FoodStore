@@ -174,7 +174,9 @@ $ curl -s -X PATCH localhost:8080/food/
 go test ./... -race -cover
 ```
 
-Layer `config` dan `services/food_service` berada di **100% statement coverage**; controller dan repository warisan belum punya test, sehingga total repo sekitar 5,9%. CI mencetak kedua angka itu — mencetak hanya totalnya menutupi kerja yang sudah dilakukan, mencetak hanya yang 100% terbaca sebagai cherry-picking.
+Total repo sekitar **29%**. Yang sudah tertutup adalah bagian yang menentukan benar-salahnya aplikasi: `services/food_service` 100%, `config` (routing dan penjagaan akses) 86%, `auth` 83%, `services/auth_service` 81%. Controller dan repository masih 0% karena keduanya butuh database yang nyala; itu pekerjaan berikutnya. CI mencetak angka per fungsi dan total sekaligus — mencetak hanya totalnya menutupi kerja yang sudah dilakukan, mencetak hanya yang 100% terbaca sebagai cherry-picking.
+
+Yang dijaga test hari ini, selain CRUD biasa: status HTTP benar-benar terkirim ke kabel (bukan hanya benar di dalam helper), panic jadi 500 alih-alih koneksi putus, endpoint terjaga menolak tanpa token dan menolak peran yang salah, token yang ditandatangani kunci lain ditolak, serta pesan login gagal tidak membocorkan username mana yang terdaftar.
 
 Unit test service memakai **stub repository yang ditulis tangan** (`services/food_service/stub_repo_test.go`), bukan library mock. Dua hal yang membuatnya lebih dari sekadar mengejar angka coverage:
 
