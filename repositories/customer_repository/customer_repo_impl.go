@@ -1,6 +1,8 @@
 package customerrepository
 
 import (
+	"errors"
+
 	"go-food-store/json/request"
 	"go-food-store/json/response"
 	"go-food-store/models"
@@ -88,19 +90,20 @@ func (c *CustomerRepoImpl) GetAllCustomer() response.WebResponse {
 // GetCustomerById implements CustomerRepo.
 func (c *CustomerRepoImpl) GetCustomerById(CustId uint) (response.WebResponse, bool) {
 	var customer models.Customer
-	err := c.DB.Where("id = ?", CustId).Find(&customer).Error
-	if err != nil {
-		return response.WebResponse{
-			Code:    http.StatusInternalServerError,
-			Status:  "Internal Server Error",
-			Message: "Can't get customer due to server error",
-			Data:    nil,
-		}, false
-	} else if customer.ID == 0 {
+	// First, bukan Find — lihat alasan yang sama di food repository.
+	err := c.DB.First(&customer, CustId).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return response.WebResponse{
 			Code:    http.StatusNotFound,
 			Status:  "Not Found",
 			Message: "Customer not found",
+			Data:    nil,
+		}, false
+	} else if err != nil {
+		return response.WebResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "Internal Server Error",
+			Message: "Can't get customer due to server error",
 			Data:    nil,
 		}, false
 	}

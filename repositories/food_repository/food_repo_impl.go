@@ -1,6 +1,8 @@
 package foodrepository
 
 import (
+	"errors"
+
 	"go-food-store/json/request"
 	"go-food-store/json/response"
 	"go-food-store/models"
@@ -89,19 +91,22 @@ func (f *FoodRepoImpl) GetAllFood() response.WebResponse {
 // GetFoodById implements FoodRepo.
 func (f *FoodRepoImpl) GetFoodById(FoodId uint) (response.WebResponse, bool) {
 	var food models.Food
-	err := f.DB.Where("id = ?", FoodId).Find(&food).Error
-	if err != nil {
-		return response.WebResponse{
-			Code:    http.StatusInternalServerError,
-			Status:  "Internal Server Error",
-			Message: "Can't get food due to server error",
-			Data:    nil,
-		}, false
-	} else if food.ID == 0 {
+	// First, bukan Find: Find pada satu struct membalas nil error untuk nol
+	// baris, sehingga kegagalan database yang sebenarnya tidak terbedakan
+	// dari data yang memang tidak ada.
+	err := f.DB.First(&food, FoodId).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return response.WebResponse{
 			Code:    http.StatusNotFound,
 			Status:  "Not Found",
 			Message: "Food not found",
+			Data:    nil,
+		}, false
+	} else if err != nil {
+		return response.WebResponse{
+			Code:    http.StatusInternalServerError,
+			Status:  "Internal Server Error",
+			Message: "Can't get food due to server error",
 			Data:    nil,
 		}, false
 	}

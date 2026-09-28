@@ -7,8 +7,11 @@ type FoodResponse struct {
 }
 
 type FoodDetailResponse struct {
-	FoodId    uint
-	FoodName  string
+	FoodId   uint
+	FoodName string
+	// FoodPrice adalah harga yang tercatat saat transaksi dibuat, bukan
+	// harga menu saat ini.
 	FoodPrice float64
 	Quantity  int
+	Subtotal  float64
 }

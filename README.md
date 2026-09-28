@@ -99,7 +99,8 @@ $ curl -s localhost:8080/transaction/unpaid/
   "Data": [{
     "TransactionId": 1,
     "Customer": { "Id": 1, "CustomerName": "David Adriel" },
-    "Food": [{ "FoodId": 1, "FoodName": "Nasi Goreng", "FoodPrice": 25000, "Quantity": 2 }],
+    "Food": [{ "FoodId": 1, "FoodName": "Nasi Goreng", "FoodPrice": 25000, "Quantity": 2, "Subtotal": 50000 }],
+    "TotalPrice": 50000,
     "AlreadyPay": false
   }]
 }
@@ -140,31 +141,22 @@ Suite ini diuji dengan mutation testing: dari 25 mutasi yang disuntikkan ke kode
 
 ### Transaksi yang sudah lunas tidak bisa diubah
 
-`PUT /transaction/{id}` dan `DELETE /transaction/{id}` mengembalikan `304` kalau transaksi sudah ditandai lunas:
+`PUT /transaction/{id}` dan `DELETE /transaction/{id}` mengembalikan `409 Conflict` kalau transaksi sudah ditandai lunas:
 
 ```bash
 $ curl -s -X DELETE localhost:8080/transaction/1
-{ "Code": 304, "Status": "Not modified", "Message": "Can't delete paid transaction", "Data": null }
+{ "Code": 409, "Status": "Conflict", "Message": "Can't delete paid transaction", "Data": null }
 ```
 
-Ini logika bisnis yang disengaja, bukan error.
+Ini logika bisnis yang disengaja, bukan error. Sebelumnya kasus ini membalas `304 Not Modified`; 304 dilarang membawa body oleh spesifikasi HTTP, jadi alasan penolakannya hilang di jalan.
+
+### Harga disalin saat transaksi dibuat
+
+`transaction_foods.unit_price` menyimpan harga yang berlaku pada saat pesanan dibuat. Mengubah harga menu tidak mengubah nilai transaksi yang sudah terjadi — struk kemarin tetap berbunyi sama hari ini. `TotalPrice` dihitung dari harga tercatat itu, bukan dari harga menu sekarang.
 
 ## Batasan yang diketahui
 
 Dicantumkan terbuka karena ini keputusan sadar atau cacat yang sudah diketahui, bukan hal yang terlewat.
-
-- **🔴 Status code HTTP selalu 200.** Tidak ada satu pun pemanggilan `w.WriteHeader` di seluruh repo, jadi status code hanya ditulis ke dalam body JSON, bukan ke response HTTP-nya:
-
-  ```bash
-  $ curl -s -o /dev/null -w '%{http_code}\n' localhost:8080/food/999
-  200
-  $ curl -s localhost:8080/food/999
-  { "Code": 404, ... }
-  ```
-
-  Konsekuensinya nyata: klien yang memeriksa status HTTP — hampir semua HTTP client, load balancer, dan tooling monitoring — **tidak akan pernah bisa mendeteksi error di API ini**. Ini cacat paling serius yang tersisa. Perbaikannya terpusat (satu helper penulis response yang memanggil `WriteHeader(res.Code)` sebelum menulis body), tapi mengubahnya adalah perubahan kontrak yang memengaruhi setiap endpoint, jadi dipisahkan dari pekerjaan ini agar bisa diuji tersendiri.
-
-- **Pesan `304` pada jalur update menyebut "delete".** `repositories/transaction_repository/transaction_repo_impl.go:394` mengembalikan `"Can't delete paid transaction"` padahal itu operasi update — salah tempel. `Status`-nya juga beda kapitalisasi antar dua tempat (`"Not modified"` di jalur delete, `"Not Modified"` di jalur update).
 
 - **Repository mengembalikan `response.WebResponse`.** Artinya layer data mengetahui status code HTTP — pencampuran tanggung jawab. Yang lebih benar: repository mengembalikan `(data, error)` dan pemetaan ke HTTP dilakukan di controller. Belum diubah karena menyentuh ketiga domain sekaligus.
 - **`FindById` mengabaikan flag `found`** dari repository dan meneruskan response apa pun yang diterima. Hasilnya kebetulan benar karena repository sudah mengisi response 404, tapi kebenarannya bergantung pada kebetulan itu. Ada test yang mendokumentasikan perilaku ini — bukan membenarkannya.

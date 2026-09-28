@@ -1,12 +1,13 @@
 package transactionservice
 
 import (
-	"go-food-store/json/request"
-	"go-food-store/json/response"
-	transaction "go-food-store/repositories/transaction_repository"
 	"net/http"
 
 	"github.com/go-playground/validator"
+
+	"go-food-store/json/request"
+	"go-food-store/json/response"
+	transaction "go-food-store/repositories/transaction_repository"
 )
 
 type TransactionServiceImpl struct {
@@ -21,77 +22,85 @@ func NewTransactionService(TransactionRepo transaction.TransactionRepositories, 
 	}
 }
 
+func badRequest(message string) response.WebResponse {
+	return response.WebResponse{
+		Code:    http.StatusBadRequest,
+		Status:  "Bad Request",
+		Message: message,
+		Data:    nil,
+	}
+}
+
+// duplicateFood melaporkan apakah ada FoodId yang muncul lebih dari sekali.
+//
+// Baris detail memakai (transaction_id, food_id) sebagai primary key, jadi
+// dua baris untuk makanan yang sama menabrak constraint dan dulu keluar
+// sebagai 500. Itu kesalahan client, bukan kesalahan server: gabungkan
+// quantity-nya di sisi pemanggil.
+func duplicateFood(items []request.FoodDetailReq) bool {
+	seen := make(map[uint]struct{}, len(items))
+	for _, item := range items {
+		if _, exists := seen[item.FoodId]; exists {
+			return true
+		}
+		seen[item.FoodId] = struct{}{}
+	}
+	return false
+}
+
 // AcceptPayment implements TransactionService.
 func (t *TransactionServiceImpl) AcceptPayment(transactionId uint) response.WebResponse {
-	response := t.TransactionRepo.AcceptPayment(transactionId)
-	return response
+	return t.TransactionRepo.AcceptPayment(transactionId)
 }
 
 // Create implements TransactionService.
-func (t *TransactionServiceImpl) Create(transaction request.CreateTransactionReq) response.WebResponse {
-	err := t.Validate.Struct(transaction)
-	if err != nil {
-		return response.WebResponse{
-			Code:    http.StatusBadRequest,
-			Status:  "Bad request",
-			Message: "Please check the request",
-			Data:    nil,
-		}
+func (t *TransactionServiceImpl) Create(req request.CreateTransactionReq) response.WebResponse {
+	if err := t.Validate.Struct(req); err != nil {
+		return badRequest("Please check the request")
 	}
-	response, found := t.TransactionRepo.GetCustomerById(transaction.CustomerId)
-	if !found {
-		return response
+	if duplicateFood(req.Food) {
+		return badRequest("Duplicate FoodId in one transaction, merge the quantity instead")
 	}
-	for _, detail := range transaction.Food {
-		response, found := t.TransactionRepo.GetFoodById(detail.FoodId)
-		if !found {
-			return response
-		}
+	// Keberadaan makanan diperiksa di dalam transaksi database oleh
+	// repository, jadi tidak diulang di sini: cek ganda hanya menambah
+	// perjalanan ke database dan tetap bisa basi sebelum insert berjalan.
+	if res, found := t.TransactionRepo.GetCustomerById(req.CustomerId); !found {
+		return res
 	}
-	response = t.TransactionRepo.CreateTransaction(transaction)
-	return response
+	return t.TransactionRepo.CreateTransaction(req)
 }
 
 // Delete implements TransactionService.
 func (t *TransactionServiceImpl) Delete(transactionId uint) response.WebResponse {
-	response, found := t.TransactionRepo.GetTransactionById(transactionId)
-	if !found {
-		return response
-	}
-	response = t.TransactionRepo.DeleteTransaction(transactionId)
-	return response
+	return t.TransactionRepo.DeleteTransaction(transactionId)
 }
 
 // FindAllPaid implements TransactionService.
 func (t *TransactionServiceImpl) FindAllPaid() response.WebResponse {
-	response := t.TransactionRepo.GetAllPaidTransaction()
-	return response
+	return t.TransactionRepo.GetAllPaidTransaction()
 }
 
 // FindAllUnpaid implements TransactionService.
 func (t *TransactionServiceImpl) FindAllUnpaid() response.WebResponse {
-	response := t.TransactionRepo.GetUnpaidTransaction()
-	return response
+	return t.TransactionRepo.GetUnpaidTransaction()
 }
 
 // FindById implements TransactionService.
 func (t *TransactionServiceImpl) FindById(transactionId uint) response.WebResponse {
-	response, _ := t.TransactionRepo.GetTransactionById(transactionId)
-	return response
+	res, _ := t.TransactionRepo.GetTransactionById(transactionId)
+	return res
 }
 
 // Update implements TransactionService.
-func (t *TransactionServiceImpl) Update(transaction request.UpdateTransactionReq) response.WebResponse {
-	err := t.Validate.Struct(transaction)
-	if err != nil {
-		return response.WebResponse{
-			Code:    http.StatusBadRequest,
-			Status:  "Bad request",
-			Message: "Please check the request",
-			Data:    nil,
-		}
+func (t *TransactionServiceImpl) Update(req request.UpdateTransactionReq) response.WebResponse {
+	if err := t.Validate.Struct(req); err != nil {
+		return badRequest("Please check the request")
 	}
-
-	response := t.TransactionRepo.UpdateTransaction(transaction)
-	return response
+	if duplicateFood(req.Food) {
+		return badRequest("Duplicate FoodId in one transaction, merge the quantity instead")
+	}
+	if res, found := t.TransactionRepo.GetCustomerById(req.CustomerId); !found {
+		return res
+	}
+	return t.TransactionRepo.UpdateTransaction(req)
 }
